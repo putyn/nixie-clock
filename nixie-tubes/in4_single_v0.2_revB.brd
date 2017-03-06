@@ -197,7 +197,7 @@
 <text x="4.318" y="8.89" size="0.8128" layer="22" ratio="15" rot="MR0" align="bottom-right">HV</text>
 <text x="32.512" y="8.89" size="0.8128" layer="22" ratio="15" rot="MR0">HV</text>
 <text x="9.144" y="3.302" size="0.8128" layer="22" font="vector" ratio="15" rot="MR0" align="center">IN4 NIXIE 
-v0.3</text>
+v0.2 rev A</text>
 <text x="32.512" y="20.32" size="0.8128" layer="22" ratio="15" rot="MR0">GND</text>
 <text x="4.318" y="20.32" size="0.8128" layer="22" ratio="15" rot="MR0" align="bottom-right">GND</text>
 <text x="27.94" y="3.302" size="0.8128" layer="22" font="vector" ratio="15" rot="MR0" align="center">Vlad Conut
