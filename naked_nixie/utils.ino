@@ -1,58 +1,11 @@
-#include <Ticker.h>
-#include <SPI.h>
-
-void update_displays(uint8_t *data);
-
-#define LATCH_pin 16
-#define OE_pin 2
-#define HVEN_pin 15
-
-struct dtime_t {
-  uint8_t seconds;
-  uint8_t minutes;
-  uint8_t hours;
-} local_time, old_time;
-
-struct settings_t {
-  boolean update_display;
-} settings;
-
-Ticker ticks;
-
-void setup() {
-  //init SPI driver for '595
-  Serial.begin(115200);
-  Serial.println();
-  SPI.begin();
-  //latch pin for '595
-  pinMode(LATCH_pin, OUTPUT);
-  //output enable (low) for '595
-  pinMode(OE_pin, OUTPUT);
-  //analogWrite(OE_pin, 10);
-  digitalWrite(OE_pin, LOW);
-  //HVPS enable
-  pinMode(HVEN_pin, OUTPUT);
-  digitalWrite(HVEN_pin, HIGH);
-
-  ticks.attach_ms(1000, tock);
-
-  //dumy init
-  local_time.hours = 17;
-  local_time.minutes = 35;
-  local_time.seconds = 00;
-  boot_animation();
-}
-
-void loop() {
-
-  if(settings.update_display) {
-    settings.update_display = 0;
-    slot();
-    //Serial.printf("time is: %2d:%2d\n", local_time.hours, local_time.minutes);
-  }
-}
-
+/**
+ * basic clock in software, using system ticker to cound seconds
+*/
 void tock() {
+  /**
+   * clock part
+   * increase seconds every tick
+  */
   old_time = local_time;
   local_time.seconds += 1;
   if (local_time.seconds > 59) {
@@ -66,10 +19,13 @@ void tock() {
   }
   if (local_time.hours > 23) {
     local_time.hours = 0;
-  }
-  
+  } 
+  /**
+   * since this is an interrupt we dont want to execute too much code here
+   * we will update the clock in the loop
+  */
+  settings.update_display = 1;
 }
-
 void boot_animation() {
   uint8_t data[4] = {0};
   uint8_t digit;
@@ -134,12 +90,6 @@ void slot() {
 
 void update_displays(uint8_t *data) {
 
-  //int16_t data[4] = {0};
-  //data[0] = 1 << (hours / 10);
-  //data[1] = 1 << (hours % 10);
-  //data[2] = 1 << (minutes / 10);
-  //data[3] = 1 << (minutes % 10);
-
   //display 4
   SPI.transfer((uint8_t)(((1 << data[3]) & 0xFF00) >> 8));
   SPI.transfer((uint8_t)((1 << data[3]) & 0x00FF));
@@ -154,7 +104,89 @@ void update_displays(uint8_t *data) {
   SPI.transfer((uint8_t)((1 << data[0]) & 0x00FF));
 
   //toggle latch pin
-  digitalWrite(LATCH_pin, LOW);
-  digitalWrite(LATCH_pin, HIGH);
-  digitalWrite(LATCH_pin, LOW);
+  digitalWrite(LATCH_PIN, LOW);
+  digitalWrite(LATCH_PIN, HIGH);
+  digitalWrite(LATCH_PIN, LOW);
 }
+/*
+ * return size of file human readable
+ */
+String formatBytes(size_t bytes) {
+  if (bytes < 1024) {
+    return String(bytes) + "B";
+  } else if (bytes < (1024 * 1024)) {
+    return String(bytes / 1024.0) + "KB";
+  } else if (bytes < (1024 * 1024 * 1024)) {
+    return String(bytes / 1024.0 / 1024.0) + "MB";
+  } else {
+    return String(bytes / 1024.0 / 1024.0 / 1024.0) + "GB";
+  }
+}
+/*
+ * rssi to quality for sorting networks
+ * based on http://www.speedguide.net/faq/how-does-rssi-dbm-relate-to-signal-quality-percent-439
+ */
+int rssi2quality(int rssi) {
+  int quality;
+
+  if ( rssi <= -100) {
+    quality = 0;
+  } else if ( rssi >= -50) {
+    quality = 100;
+  } else {
+    quality = 2 * ( rssi + 100);
+  }
+  return quality;
+}
+/*
+ * helper function for saving data structures to file
+ * havely based on  https://github.com/letscontrolit/ESPEasy/blob/mega/src/Misc.ino#L767
+ */
+boolean save_file(char* fname, byte* memAddress, int datasize){
+
+  fs::File f = SPIFFS.open(fname, "w+");
+  if (f) {
+    byte *pointerToByteToSave = memAddress;
+    for (int x = 0; x < datasize ; x++) {
+      f.write(*pointerToByteToSave);
+      pointerToByteToSave++;
+    }
+    f.close();
+  }
+  return true;
+}
+/*
+ * helper function for reading data structures from file
+ * havely based on  https://github.com/letscontrolit/ESPEasy/blob/mega/src/Misc.ino#L801
+ */
+void read_file(char* fname, byte* memAddress, int datasize) {
+  fs::File f = SPIFFS.open(fname, "r+");
+  if (f) {
+    byte *pointerToByteToRead = memAddress;
+    for (int x = 0; x < datasize; x++) {
+      *pointerToByteToRead = f.read();
+      pointerToByteToRead++;// next byte
+    }
+    f.close();
+  }
+}
+/*
+ * pretty uptime
+ 
+String mkuptime(uint32_t seconds) {
+  uint8_t days;
+  uint8_t hours;
+  uint8_t minutes;
+
+  days = seconds / 86400;
+  seconds = seconds % days;
+  hours = seconds / 3600;
+  seconds = seconds % hours;
+  minutes = seconds / 60;
+  seconds = seconds % minutes;
+
+  char buf[32] = {0};
+  sprintf(buf, "%d days, %d hours, %d minutes, %d seconds", days, hours, minutes, seconds);
+  Serial.println(buf);
+}
+*/
