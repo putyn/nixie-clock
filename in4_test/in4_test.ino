@@ -5,15 +5,16 @@ extern settings_t settings;
 
 Ticker animation;
 
+
 uint32_t unix_time = 0;
 uint32_t unix_time_ms = 0;
 
 void timer_callback(void) {
   unix_time_ms++;
-  if (unix_time_ms > 1000) {
+  if(unix_time_ms > 1000) {
     unix_time++;
-    unix_time_ms = 0;
-    settings.update_display = 1;
+    unix_time_ms = 0; 
+    settings.update_display = 1; 
   }
 }
 
@@ -35,7 +36,7 @@ void setup() {
 
   //check to see if time server is online (check internet connection also)
   settings.online = Ping.ping(settings.time_server) > 0 ? true : false;
-
+  
   //enable timer1 as time base with interrupt every 1ms
   timer1_disable();
   timer1_attachInterrupt(timer_callback);
@@ -43,12 +44,12 @@ void setup() {
   timer1_write(5000);
   timer1_isr_init();
 
-  if (settings.online) {
+  if(settings.online) {
     unix_time = ntp_get_time();
+    update_displays();  
   }
-  //stop boot animation & start displaying
+  //deatach bootanimation;
   animation.detach();
-  update_displays();
 }
 
 void loop() {
@@ -67,11 +68,6 @@ void loop() {
     settings.update_display = 0;
     update_displays();
   }
-  //check update time flag or next update update
-  if ((settings.update_time || millis() > settings.next_ntp_update) && settings.online) {
-    Serial.println(F("[NTP] time for an update!"));
-    settings.update_time = 0;
-    unix_time = ntp_get_time();
-  }
 }
+
 
