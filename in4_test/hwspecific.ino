@@ -31,18 +31,18 @@ void update_displays() {
   uint8_t minutes;
   uint8_t seconds; 
   uint8_t data[4] = {0};
-  
+  /*
   hours = (unix_time  % 86400L) / 3600;
   minutes = (unix_time  % 3600) / 60;
   seconds = unix_time % 60;
-
-  Serial.printf("%02d:%02d:%02d\n", hours,minutes,seconds);
+  */
+  Serial.printf("%02d:%02d:%02d\n", local_time.hours,local_time.minutes,local_time.seconds);
 
   //prepare display data
-  data[0] = hours / 10;
-  data[1] = hours % 10;
-  data[2] = minutes / 10;
-  data[3] = minutes % 10;
+  data[0] = local_time.hours / 10;
+  data[1] = local_time.hours % 10;
+  data[2] = local_time.minutes / 10;
+  data[3] = local_time.minutes % 10;
 
   //send to '595
   send_display_data(data);
