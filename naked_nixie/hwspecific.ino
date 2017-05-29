@@ -5,6 +5,9 @@
 #define OE_pin 2
 #define HVEN_pin 15
 
+uint16_t cie1931[11] = {
+  900, 890, 873, 844, 799, 734, 647, 533, 390, 213, 0, 
+};
 
 void hw_setup() {
   
@@ -25,8 +28,10 @@ void hw_setup() {
   digitalWrite(HVEN_pin, HIGH);
 }
 
-
-void update_displays() {
+void hw_set_brightness(uint8_t brightness) {
+  analogWrite(OE_pin, cie1931[brightness]);  
+}
+void update_displays2() {
   uint8_t hours;
   uint8_t minutes;
   uint8_t seconds; 
@@ -62,7 +67,7 @@ void boot_animation() {
     digit = 0; 
 }
 
-/*
+
 void update_displays() {
   
   uint8_t old_values[4] = {0};
@@ -106,10 +111,10 @@ void update_displays() {
   for (frame_idx = 0; frame_idx < 11; frame_idx++) {
     //Serial.printf("Frame [%2d]: value [%2d:%2d:%2d:%2d]\n", frame_idx, frames[frame_idx][0], frames[frame_idx][1], frames[frame_idx][2], frames[frame_idx][3]);
     send_display_data(frames[frame_idx]);
-    delay(100);
+    delay(75);
   }
 }
-*/
+
 void send_display_data(uint8_t *data) {
 
   //display 4

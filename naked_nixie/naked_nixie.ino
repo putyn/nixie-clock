@@ -17,11 +17,12 @@ Ticker animation;
  * timer interrupt every 1 ms
  * main clock routine
  */
-ctime_t local_time;
+ctime_t local_time, old_time;
 
-void timer_callback(void) {
+void ICACHE_RAM_ATTR timer_callback(void) {
 
   local_time.millis++;
+  old_time = local_time;
   if (local_time.millis > 1000) {
 	settings.uptime++;
     local_time.seconds++;
@@ -69,10 +70,10 @@ void setup() {
 
   if (settings.online) {
     ntp_get_time(&local_time);
-    update_displays();
   }
   //deatach bootanimation;
   animation.detach();
+  update_displays();
 }
 
 void loop() {
