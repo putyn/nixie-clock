@@ -3,14 +3,16 @@
 #include <webui.h>
 
 /*
- * settings define inside webui.h
+ * settings from webui.h
  */
 extern settings_t settings;
 
 /*
- * ticker for animation
+ * ticker for animation, clock
+ * ticker for anti cathode poisoning
  */
-Ticker animation;
+Ticker tick;
+Ticker  acp;
 
 /*
  * time, is all about time
@@ -18,39 +20,61 @@ Ticker animation;
  * main clock routine
  */
 ctime_t local_time, old_time;
+uint32_t next_acp = 0;
+boolean acp_flag = false;
 
-void ICACHE_RAM_ATTR timer_callback(void) {
-
+void tock(void) {
+  
+  //increase millis, save time for "slot" effect
   local_time.millis++;
   old_time = local_time;
+  
   if (local_time.millis > 1000) {
-	settings.uptime++;
+    //uptime increase (used in webui)
+	  settings.uptime++;
     local_time.seconds++;
     local_time.millis = 0;
-    settings.update_display = true;
+
+    //anti-cathode poisoning, first time
+    if(local_time.seconds == 29 && next_acp == 0) {
+      next_acp = settings.uptime + 1;
+      acp_flag = true;
+    } 
   }
+  
   if (local_time.seconds > 59) {
     local_time.seconds = 0;
     local_time.minutes += 1;
+
+    //update display
+    settings.update_display = true;
   }
+  
   if (local_time.minutes > 59) {
     local_time.minutes = 0;
     local_time.hours += 1;
   }
+  
   if (local_time.hours > 23) {
     local_time.hours = 0;
   }
 }
 
 void setup() {
-
-  hw_setup();
-  animation.attach_ms(250, boot_animation);
-
-  //setup file system
+  
+  //for debug
+  Serial.begin(74880);
+  
+  //file system, first for settings
   fs_setup();
-  //set a nice hostname
+  //hostname
   sprintf(settings.hostname, "naked_nixie_%06X", ESP.getChipId());
+  //brightness
+  hw_set_brightness(settings.brightness);
+  
+  //hardware setup
+  hw_setup();
+  tick.attach_ms(250, boot_animation);
 
   //setup wifi
   wifi_setup();
@@ -60,19 +84,13 @@ void setup() {
 
   //check to see if time server is online (check internet connection also)
   settings.online = Ping.ping(settings.time_server) > 0 ? true : false;
-
-  //enable timer1 as time base with interrupt every 1ms
-  timer1_disable();
-  timer1_attachInterrupt(timer_callback);
-  timer1_enable(TIM_DIV16, TIM_EDGE, TIM_LOOP);
-  timer1_write(5002);
-  timer1_isr_init();
-
+  
   if (settings.online) {
     ntp_get_time(&local_time);
+    old_time = local_time;
   }
-  //deatach bootanimation;
-  animation.detach();
+  //deatach boot animation, attach clock;
+  tick.attach_ms(1, tock);
   update_displays();
 }
 
@@ -93,10 +111,17 @@ void loop() {
     update_displays();
   }
   //check update time flag or next update update
-  if ((settings.update_time || millis() > settings.next_ntp_update) && settings.online) {
+  if ((settings.update_time || settings.uptime > settings.next_ntp_update) && settings.online) {
     Serial.println(F("[NTP] time for an update!"));
     settings.update_time = false;
     ntp_get_time(&local_time);
+  }
+
+  if(settings.uptime >= next_acp && acp_flag) {
+    acp_flag = false;
+    hw_set_brightness(10);
+    acp.attach_ms(250,acp_animation);
+    Serial.printf("[ACP] started ACP @ %02d:%02d:%02d\n", local_time.hours, local_time.minutes, local_time.seconds);
   }
 }
 
