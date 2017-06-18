@@ -17,7 +17,7 @@ void hw_setup() {
   //output enable (low) for '595
   pinMode(OE_pin, OUTPUT);
   //PWM freq, any higher than this will cause HVPS to emit a high pitched sound
-  analogWriteFreq(60);
+  analogWriteFreq(65);
 
   //HVPS enable
   pinMode(HVEN_pin, OUTPUT);
@@ -60,31 +60,27 @@ void boot_animation() {
     digit = 0;
 }
 /*
- * similar to boot_animation scrolls thorw digits to prevent cathode poisoning
+ * boot_animation + ACP staff
  * stops after 15 seconds and sets next ACP
  */
 void acp_animation() {
-  uint8_t data[4] = {0};
-  static uint8_t digit = 0;
+  
+  //borrow boot_animation 
+  boot_animation();
 
-  memset(data, digit++, 4);
-  send_display_data(data);
-
-  //reset digit
-  if (digit > 9)
-    digit = 0;
-
-  if (settings.uptime - next_acp >= 15) {
+  if (settings.uptime - settings.next_acp >= 15) {
     //set brighness back to saved value;
     hw_set_brightness(settings.brightness);
     //deatch ticker
     acp.detach();
     //update display
     update_displays();
-
-    //prepare next ACP substract 15 seconds so ACP will always start at *:*:30
-    next_acp = (settings.uptime - 15) + 900;
-    acp_flag = true;
+    /*
+     * prepare next ACP substract 15 seconds so ACP will always start at *:*:30
+     * acp_time set via webui in 5min increments, can't be off, default every hour
+     */
+    settings.next_acp = (settings.uptime - 15) + ((settings.acp_time == 0 ? 12 : settings.acp_time )* 300);
+    settings.should_acp = true;
 
     //debug message
     Serial.printf("[ACP] finished ACP @ %02d:%02d:%02d\n", local_time.hours, local_time.minutes, local_time.seconds);

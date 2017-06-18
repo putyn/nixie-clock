@@ -20,8 +20,6 @@ Ticker  acp;
  * main clock routine
  */
 ctime_t local_time, old_time;
-uint32_t next_acp = 0;
-boolean acp_flag = false;
 
 void tock(void) {
   
@@ -36,9 +34,9 @@ void tock(void) {
     local_time.millis = 0;
 
     //anti-cathode poisoning, first time
-    if(local_time.seconds == 29 && next_acp == 0) {
-      next_acp = settings.uptime + 1;
-      acp_flag = true;
+    if(local_time.seconds == 29 && settings.next_acp == 0) {
+      settings.next_acp = settings.uptime + 1;
+      settings.should_acp = true;
     } 
   }
   
@@ -92,6 +90,7 @@ void setup() {
   //deatach boot animation, attach clock;
   tick.attach_ms(1, tock);
   update_displays();
+  
 }
 
 void loop() {
@@ -115,14 +114,13 @@ void loop() {
     Serial.println(F("[NTP] time for an update!"));
     settings.update_time = false;
     ntp_get_time(&local_time);
+    update_displays();
   }
-
-  if(settings.uptime >= next_acp && acp_flag) {
-    acp_flag = false;
+  //check for acp
+  if(settings.uptime >= settings.next_acp && settings.should_acp) {
+    settings.should_acp = false;
     hw_set_brightness(10);
     acp.attach_ms(250,acp_animation);
     Serial.printf("[ACP] started ACP @ %02d:%02d:%02d\n", local_time.hours, local_time.minutes, local_time.seconds);
   }
 }
-
-
