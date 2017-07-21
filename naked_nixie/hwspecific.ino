@@ -27,24 +27,6 @@ void hw_setup() {
 void hw_set_brightness(uint8_t brightness) {
   analogWrite(OE_pin, cie1931[brightness]);
 }
-
-void update_displays2() {
-  uint8_t hours;
-  uint8_t minutes;
-  uint8_t seconds;
-  uint8_t data[4] = {0};
-
-  Serial.printf("%02d:%02d:%02d\n", local_time.hours, local_time.minutes, local_time.seconds);
-
-  //prepare display data
-  data[0] = local_time.hours / 10;
-  data[1] = local_time.hours % 10;
-  data[2] = local_time.minutes / 10;
-  data[3] = local_time.minutes % 10;
-
-  //send to '595
-  send_display_data(data);
-}
 /*
  * to be called from a ticker instance, should run till setup is finished 
 */
@@ -64,26 +46,53 @@ void boot_animation() {
  * stops after 15 seconds and sets next ACP
  */
 void acp_animation() {
-  
-  //borrow boot_animation 
-  boot_animation();
 
-  if (settings.uptime - settings.next_acp >= 15) {
-    //set brighness back to saved value;
-    hw_set_brightness(settings.brightness);
-    //deatch ticker
+  //prevent ACP if clock boots when night mode is on
+  if(is_night() && settings.suppress_acp) {
+    device.acp_start_time = device.uptime;
     acp.detach();
-    //update display
-    update_displays();
-    /*
-     * prepare next ACP substract 15 seconds so ACP will always start at *:*:30
-     * acp_time set via webui in 5min increments, can't be off, default every hour
-     */
-    settings.next_acp = (settings.uptime - 15) + ((settings.acp_time == 0 ? 12 : settings.acp_time )* 300);
-    settings.should_acp = true;
+    return;
+  }
+  
+  //ACP is not running, but we should start it
+  if(!device.acp_is_running) {
+    //remove ticker & attach a new one every 250ms
+    acp.detach();
+    acp.attach_ms(250,acp_animation); 
 
-    //debug message
-    Serial.printf("[ACP] finished ACP @ %02d:%02d:%02d\n", local_time.hours, local_time.minutes, local_time.seconds);
+    //set flag to know we should run ACP & save the start time
+    device.acp_is_running = true;
+    device.acp_start_time = device.uptime;
+
+    //pretty message
+    Serial.printf("[ACP] started at %02d:%02d:%02d\n", local_time.hours, local_time.minutes, local_time.seconds);
+  }
+
+  //ACP is running, probably we sould stop it :)
+  if(device.acp_is_running) {
+
+    //brightness to max
+    hw_set_brightness(10);
+    //borrow boot animation
+    boot_animation();
+
+    //check if we should stop and set next ACP
+    if((device.uptime - device.acp_start_time) >= 15) {
+
+      //brightness
+      hw_set_brightness(settings.brightness);
+      update_displays();
+      
+      //stop ACP
+      acp.detach();
+      device.acp_is_running = false;
+
+      //set new ACP
+      acp.once(((settings.acp_time == 0 ? 12 : settings.acp_time )* 300) - 15, acp_animation);
+      
+      //pretty message
+      Serial.printf("[ACP] finished at %02d:%02d:%02d\n", local_time.hours, local_time.minutes, local_time.seconds);
+    }
   }
 }
 
@@ -154,3 +163,11 @@ void send_display_data(uint8_t *data) {
   digitalWrite(LATCH_pin, HIGH);
   digitalWrite(LATCH_pin, LOW);
 }
+
+//boolean should_acp() {
+//  if(is_night() && settings.suppress_acp) {
+//    return false;
+//  } else {
+//    return device.should_acp;
+//  }
+//}
