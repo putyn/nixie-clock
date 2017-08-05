@@ -1,6 +1,6 @@
-#include <ESP8266Ping.h>
+#include <ESP8266Ping.h>  //https://github.com/dancol90/ESP8266Ping
 #include <Ticker.h>
-#include <webui.h>
+#include <webui.h>  //https://github.com/putyn/webui/tree/webui-nixie
 
 /*
  * settings from webui.h
@@ -54,7 +54,7 @@ void tock(void) {
     local_time.hours += 1;
 
     //check for change in night mode, set brightness, suppress ACP if needed
-    if(device.night_mode != is_night()) {
+    if(device.nightmode != is_night()) {
       //set brigness to correct value
       hw_set_brightness(is_night() ? 0 : settings.brightness);
 
@@ -63,10 +63,10 @@ void tock(void) {
         acp.detach();
       }
       //it was night, it is no more, set acp_start_time to 0, it will be handled by the initial ACP start
-      if(!is_night() && device.night_mode) {
+      if(!is_night() && device.nightmode) {
         device.acp_start_time = 0;  
       }
-      device.night_mode = is_night();
+      device.nightmode = is_night();
     }
   }
   //runs every 24 hours
@@ -84,12 +84,11 @@ void setup() {
   fs_setup();
   //hostname
   sprintf(device.hostname, "naked_nixie_%06X", ESP.getChipId());
-  
-  //brightness
-  hw_set_brightness(is_night() ? 0 : settings.brightness);
-  
+ 
   //hardware setup
   hw_setup();
+  //set min brighness at start up, it will be reset after setting the time
+  hw_set_brightness(0);
   tick.attach_ms(250, boot_animation);
 
   //setup wifi
@@ -105,6 +104,10 @@ void setup() {
     ntp_get_time(&local_time);
     old_time = local_time;
   }
+  
+  //brightness after clock is set
+  hw_set_brightness(is_night() ? 0 : settings.brightness);
+  
   //deatach boot animation, attach clock;
   tick.attach_ms(1, tock);
   update_displays();
